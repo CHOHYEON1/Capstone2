@@ -31,8 +31,9 @@
 
         <service android:name=".AudioClassificationService"
             android:foregroundServiceType="microphone"/>
-        <meta-data android:name="com.kakao.sdk.AppKey"
-            android:value="7217c543af7c3d3899cd87f615aebbbe"/>
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyBQR8jS6sqfRumngCH25GqO5AlPoVRSrKU" />
     </application>
 
 </manifest>
