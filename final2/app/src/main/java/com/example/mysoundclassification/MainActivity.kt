@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
-import android.location.LocationManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -14,7 +13,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -31,13 +29,13 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.BitmapDescriptor
-import com.google.android.gms.maps.model.Marker
 import org.tensorflow.lite.task.audio.classifier.AudioClassifier
 import java.util.*
 import kotlin.concurrent.scheduleAtFixedRate
+import kotlin.math.cos
 import kotlin.math.log10
 import kotlin.math.pow
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -65,12 +63,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var textView: TextView
     private lateinit var recorderSpecsTextView: TextView
-    private lateinit var imageViewDog: ImageView
-    private lateinit var imageViewBark: ImageView
-    private lateinit var imageViewHonk: ImageView
-    private lateinit var imageViewFireAlarm: ImageView
-    private lateinit var imageViewSiren: ImageView
-    private lateinit var imageViewVehicleHorn: ImageView
     private lateinit var vibrator: Vibrator
 
     private var timer: Timer? = null
@@ -90,29 +82,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         textView = findViewById(R.id.output)
         recorderSpecsTextView = findViewById(R.id.textViewAudioRecorderSpecs)
-        imageViewDog = findViewById(R.id.imageViewDog)
-        imageViewBark = findViewById(R.id.imageViewBark)
-        imageViewHonk = findViewById(R.id.imageViewHonk)
-        imageViewFireAlarm = findViewById(R.id.imageViewFireAlarm)
-        imageViewSiren = findViewById(R.id.imageViewSiren)
-        imageViewVehicleHorn = findViewById(R.id.imageViewVehicleHorn)
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
         directionTextView = findViewById(R.id.directionTextView)
 
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.RECORD_AUDIO
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                REQUEST_RECORD_AUDIO
-            )
-        } else {
-            startAudioProcessing()
-        }
 
         requestPermissions()
     }
@@ -157,7 +130,42 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
     }
 
-    private fun startAudioProcessing() {
+
+
+
+    private fun requestPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO)
+        } else {
+            startAudioClassificationService()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_RECORD_AUDIO && grantResults.isNotEmpty()&& grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startAudioClassificationService()
+        } else {
+            textView.text = "Audio recording permission denied"
+        }
+
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            initializeMap()
+        }
+    }
+
+    private fun startAudioClassificationService() {
+        val intent = Intent(this, AudioClassificationService::class.java)
+        ContextCompat.startForegroundService(this, intent)
+
+        startAudioClassification()
+    }
+
+    private var currentDirection: String = ""
+
+    private fun startAudioClassification() {
         val minBufferSize =
             AudioRecord.getMinBufferSize(sampleRate2, channelConfig2, audioFormat2)
         if (ActivityCompat.checkSelfPermission(
@@ -198,46 +206,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val rightDb = rmsToDb(rightRms)
 
                 if (leftDb > thresholdDb || rightDb > thresholdDb) {
-                    val direction = if (leftDb > rightDb) "Left" else "Right"
+                    currentDirection = if (leftDb > rightDb) "Left" else "Right"
                     runOnUiThread {
-                        directionTextView.text = direction
+                        directionTextView.text = currentDirection
                     }
                 }
             }
         }.start()
-    }
 
-    private fun requestPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO)
-        } else {
-            startAudioClassificationService()
-        }
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_RECORD_AUDIO && grantResults.isNotEmpty()&& grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startAudioClassificationService()
-        } else {
-            textView.text = "Audio recording permission denied"
-        }
-
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE &&
-            grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            initializeMap()
-        }
-    }
-
-    private fun startAudioClassificationService() {
-        val intent = Intent(this, AudioClassificationService::class.java)
-        ContextCompat.startForegroundService(this, intent)
-
-        startAudioClassification()
-    }
-
-    private fun startAudioClassification() {
         val classifier = AudioClassifier.createFromFile(this, modelPath)
         val tensor = classifier.createInputTensorAudio()
         val format = classifier.requiredTensorAudioFormat
@@ -263,13 +239,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     runOnUiThread {
                         textView.text = outputStr
                         if (isTargetSoundDetected(outputStr)) {
-                            showRelevantImage(outputStr)
+                            addDirectionalMarker(currentDirection,outputStr)
+                            vibrate()
                         }
                     }
                 }
             }
         }
     }
+
 
     private fun isTargetSoundDetected(outputStr: String): Boolean {
         return outputStr.contains("dog", ignoreCase = true) ||
@@ -290,40 +268,46 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun showRelevantImage(outputStr: String) {
-        hideAllImages()
 
-        val imageViewToShow = when {
-            outputStr.contains("dog", ignoreCase = true) -> imageViewDog
-            outputStr.contains("bark", ignoreCase = true) -> imageViewBark
-            outputStr.contains("honk", ignoreCase = true) -> imageViewHonk
-            outputStr.contains("fire alarm", ignoreCase = true) -> imageViewFireAlarm
-            outputStr.contains("siren", ignoreCase = true) -> imageViewSiren
-            outputStr.contains("vehicle horn", ignoreCase = true) -> imageViewVehicleHorn
-            else -> null
-        }
 
-        imageViewToShow?.let {
-            it.visibility = ImageView.VISIBLE
-            vibrate()
+    private fun addDirectionalMarker(direction: String, outputStr: String) {
+        currentLocation?.let { location ->
+            val currentLatLng = LatLng(location.latitude, location.longitude)
+            val distance = 0.0001 // 이동 거리 (단위: 위도/경도)
+            val angle = Math.toRadians(location.bearing.toDouble())
 
-            currentRunnable?.let { handler.removeCallbacks(it) }
-            currentRunnable = Runnable {
-                it.visibility = ImageView.GONE
-            }.also { runnable ->
-                handler.postDelayed(runnable, 3000)
+            val newLatLng = when (direction) {
+                "Left" -> LatLng(
+                    currentLatLng.latitude + distance * sin(angle + Math.PI / 2),
+                    currentLatLng.longitude + distance * cos(angle + Math.PI / 2)
+                )
+                "Right" -> LatLng(
+                    currentLatLng.latitude + distance * sin(angle - Math.PI / 2),
+                    currentLatLng.longitude + distance * cos(angle - Math.PI / 2)
+                )
+                else -> currentLatLng
             }
+
+            val markerOptions = MarkerOptions()
+                .position(newLatLng)
+                .title(direction)
+
+            // 소리 종류에 따라 마커 이미지 설정
+            val markerImage = when {
+                outputStr.contains("dog", ignoreCase = true) || outputStr.contains("bark", ignoreCase = true) -> R.drawable.bark2
+                outputStr.contains("honk", ignoreCase = true) -> R.drawable.honk
+                outputStr.contains("fire alarm", ignoreCase = true) || outputStr.contains("siren", ignoreCase = true) || outputStr.contains("vehicle horn", ignoreCase = true) -> R.drawable.vehiclehorn2
+                else -> R.drawable.accessibility // 기본 마커 이미지
+            }
+
+            markerOptions.icon(BitmapDescriptorFactory.fromResource(markerImage))
+
+            mMap.addMarker(markerOptions)
         }
     }
 
-    private fun hideAllImages() {
-        imageViewDog.visibility = ImageView.GONE
-        imageViewBark.visibility = ImageView.GONE
-        imageViewHonk.visibility = ImageView.GONE
-        imageViewFireAlarm.visibility = ImageView.GONE
-        imageViewSiren.visibility = ImageView.GONE
-        imageViewVehicleHorn.visibility = ImageView.GONE
-    }
+
+
 
     private fun rmsToDb(rms: Double): Double {
         return 20 * log10(rms)
@@ -334,6 +318,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         isRecording2 = false
         audioRecord2?.stop()
         audioRecord2?.release()
+        fusedLocationClient.removeLocationUpdates(locationCallback)
     }
 }
 
