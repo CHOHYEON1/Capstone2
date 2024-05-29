@@ -19,6 +19,11 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -43,7 +48,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private val modelPath = "lite-model_yamnet_classification_tflite_1.tflite"
     private val probabilityThreshold: Float = 0.3f
 
-    private lateinit var locationManager: LocationManager
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
     private var currentLocation: Location? = null
 
     private lateinit var directionTextView: TextView
@@ -75,11 +81,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         // Initialize the map
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+
 
         textView = findViewById(R.id.output)
         recorderSpecsTextView = findViewById(R.id.textViewAudioRecorderSpecs)
@@ -115,45 +122,39 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         isMapReady = true
 
         // 위치 권한 확인
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             // 권한이 허용된 경우 지도 초기화
             initializeMap()
         } else {
             // 권한이 없는 경우 권한 요청
-            ActivityCompat.requestPermissions(this,
-                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
-                LOCATION_PERMISSION_REQUEST_CODE)
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
         }
     }
 
     private fun initializeMap() {
-        // 지도 설정
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return
         }
         mMap.isMyLocationEnabled = true
 
-        // 현재 위치 가져오기
-        val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-        location?.let {
-            val currentLatLng = LatLng(it.latitude, it.longitude)
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 21f))
+        // 위치 요청 설정
+        val locationRequest = LocationRequest.create().apply {
+            interval = 500 // 5초 간격으로 위치 업데이트
+            fastestInterval = 100 // 2초 간격으로 위치 업데이트
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
         }
+
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let {
+                    currentLocation = it
+                    val currentLatLng = LatLng(it.latitude, it.longitude)
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 20f))
+                }
+            }
+        }
+
+        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
     }
 
     private fun startAudioProcessing() {
