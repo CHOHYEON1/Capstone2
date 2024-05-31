@@ -14,7 +14,7 @@
         android:id="@+id/checkBoxHonk"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Horn" />
+        android:text="Car horn" />
 
     <CheckBox
         android:id="@+id/checkBoxSiren"
@@ -22,11 +22,6 @@
         android:layout_height="wrap_content"
         android:text="Siren" />
 
-    <CheckBox
-        android:id="@+id/checkBoxVehicle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Vehicle" />
 
     <CheckBox
         android:id="@+id/checkBoxBird"

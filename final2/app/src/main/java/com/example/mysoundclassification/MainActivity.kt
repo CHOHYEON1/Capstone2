@@ -65,10 +65,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var directionTextView: TextView
     private var audioRecord2: AudioRecord? = null
     private val sampleRate2 = 44100
-    private val channelConfig2 = AudioFormat.CHANNEL_IN_MONO // 스테레오 대신 모노 사용
+    private val channelConfig2 = AudioFormat.CHANNEL_IN_MONO
     private val audioFormat2 = AudioFormat.ENCODING_PCM_16BIT
     private var isRecording2 = false
-    private val thresholdDb = 50  // 임계값 설정 (데시벨)
+    private val thresholdDb = 50
 
     private lateinit var mMap: GoogleMap
     private var isMapReady: Boolean = false
@@ -171,7 +171,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private var currentDirection: String = ""
     private var selectedSounds: Set<String> = emptySet()
-    private val detectionTargets = listOf("dog", "bark", "honk", "horn", "siren", "vehicle", "bird")
+    private val detectionTargets = listOf("dog", "honk", "siren", "bird")
 
     private fun startAudioClassification() {
         selectedSounds = loadSelectedSoundsFromSharedPreferences()
@@ -233,7 +233,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     filteredModelOutput.any { it.label.equals(target, ignoreCase = true) }
                 }
 
-
                 if (outputStr.isNotEmpty()) {
                     runOnUiThread {
                         textView.text = outputStr
@@ -243,8 +242,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                             if (detectedSound != null) {
                                 sendNotification(detectedSound)
                             }
+                        } else {
+                            Log.d("MainActivity", "Detected sound not in selected sounds: $outputStr")
                         }
                     }
+                } else {
+                    Log.d("MainActivity", "No sounds detected")
                 }
             }
         }
@@ -253,11 +256,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun isTargetSoundDetected(outputStr: String, selectedSounds: Set<String>): Boolean {
         for (sound in selectedSounds) {
             if (outputStr.contains(sound, ignoreCase = true)) {
+                Log.d("MainActivity", "Detected target sound: $sound")
                 return true
             }
         }
         return false
     }
+
+
 
     private fun vibrate() {
         if (vibrator.hasVibrator()) {
@@ -274,7 +280,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val channelId = "AudioClassificationServiceChannel"
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Android O 이상에서는 NotificationChannel을 생성해야 합니다.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelName = "Audio Classification Service"
             val importance = NotificationManager.IMPORTANCE_DEFAULT
@@ -282,16 +287,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             notificationManager.createNotificationChannel(channel)
         }
 
-        // 알림 생성
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Sound Detected")
             .setContentText("Detected: $detectedSound")
-            .setSmallIcon(R.drawable.ic_launcher_background) // 알림 아이콘 설정
+            .setSmallIcon(R.drawable.ic_launcher_background)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
 
-        // 알림 표시
         notificationManager.notify(notificationId++, notification)
     }
 
@@ -305,7 +308,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun addDirectionalMarker(direction: String, outputStr: String) {
         currentLocation?.let { location ->
             val currentLatLng = LatLng(location.latitude, location.longitude)
-            val distance = 0.0001 // 이동 거리 (단위: 위도/경도)
+            val distance = 0.0001
             val angle = Math.toRadians(location.bearing.toDouble())
 
             val newLatLng = when (direction) {
@@ -328,9 +331,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 outputStr.contains("dog", ignoreCase = true) || outputStr.contains("bark", ignoreCase = true) -> R.drawable.dog
                 outputStr.contains("honk", ignoreCase = true) || outputStr.contains("horn", ignoreCase = true) -> R.drawable.honk
                 outputStr.contains("siren", ignoreCase = true) -> R.drawable.siren
-                outputStr.contains("vehicle", ignoreCase = true) -> R.drawable.vehicle
                 outputStr.contains("bird", ignoreCase = true) -> R.drawable.bird
-                else -> R.drawable.accessibility // 기본 마커 이미지
+                else -> R.drawable.accessibility
             }
 
             val resizedMarkerImage = getResizedBitmap(markerImage, 200, 200)
@@ -391,13 +393,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         if (sharedPrefs.getBoolean("dog", false)) selectedSoundsSet.add("dog")
         if (sharedPrefs.getBoolean("honk", false)) selectedSoundsSet.add("honk")
         if (sharedPrefs.getBoolean("siren", false)) selectedSoundsSet.add("siren")
-        if (sharedPrefs.getBoolean("vehicle", false)) selectedSoundsSet.add("vehicle")
         if (sharedPrefs.getBoolean("bird", false)) selectedSoundsSet.add("bird")
 
         Log.d("MainActivity", "Loaded preferences: $selectedSoundsSet")
 
         return selectedSoundsSet
     }
+
 
     override fun onResume() {
         super.onResume()

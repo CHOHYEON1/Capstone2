@@ -14,7 +14,6 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var checkBoxDog: CheckBox
     private lateinit var checkBoxHonk: CheckBox
     private lateinit var checkBoxSiren: CheckBox
-    private lateinit var checkBoxVehicle: CheckBox
     private lateinit var checkBoxBird: CheckBox
 
     private lateinit var preferences: SharedPreferences
@@ -29,7 +28,6 @@ class SettingsActivity : AppCompatActivity() {
         checkBoxDog = findViewById(R.id.checkBoxDog)
         checkBoxHonk = findViewById(R.id.checkBoxHonk)
         checkBoxSiren = findViewById(R.id.checkBoxSiren)
-        checkBoxVehicle = findViewById(R.id.checkBoxVehicle)
         checkBoxBird = findViewById(R.id.checkBoxBird)
 
         loadPreferences()
@@ -45,7 +43,6 @@ class SettingsActivity : AppCompatActivity() {
         checkBoxDog.isChecked = preferences.getBoolean("dog", false)
         checkBoxHonk.isChecked = preferences.getBoolean("honk", false)
         checkBoxSiren.isChecked = preferences.getBoolean("siren", false)
-        checkBoxVehicle.isChecked = preferences.getBoolean("vehicle", false)
         checkBoxBird.isChecked = preferences.getBoolean("bird", false)
     }
 
@@ -54,11 +51,10 @@ class SettingsActivity : AppCompatActivity() {
         editor.putBoolean("dog", checkBoxDog.isChecked)
         editor.putBoolean("honk", checkBoxHonk.isChecked)
         editor.putBoolean("siren", checkBoxSiren.isChecked)
-        editor.putBoolean("vehicle", checkBoxVehicle.isChecked)
         editor.putBoolean("bird", checkBoxBird.isChecked)
         editor.apply()
 
-        // 디버그 로그 추가
-        Log.d("SettingsActivity", "Saved preferences: dog=${checkBoxDog.isChecked}, honk=${checkBoxHonk.isChecked}, siren=${checkBoxSiren.isChecked}, vehicle=${checkBoxVehicle.isChecked}, bird=${checkBoxBird.isChecked}")
+        Log.d("SettingsActivity", "Saved preferences: dog=${checkBoxDog.isChecked}, honk=${checkBoxHonk.isChecked}, siren=${checkBoxSiren.isChecked}, bird=${checkBoxBird.isChecked}")
     }
+
 }
