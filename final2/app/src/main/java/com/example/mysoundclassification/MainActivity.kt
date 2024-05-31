@@ -1,21 +1,32 @@
 package com.example.mysoundclassification
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.location.Location
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.util.Log
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.widget.TextView
+import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -29,6 +40,7 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.Marker
 import org.tensorflow.lite.task.audio.classifier.AudioClassifier
 import java.util.*
 import kotlin.concurrent.scheduleAtFixedRate
@@ -53,7 +65,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var directionTextView: TextView
     private var audioRecord2: AudioRecord? = null
     private val sampleRate2 = 44100
-    private val channelConfig2 = AudioFormat.CHANNEL_IN_STEREO
+    private val channelConfig2 = AudioFormat.CHANNEL_IN_MONO // 스테레오 대신 모노 사용
     private val audioFormat2 = AudioFormat.ENCODING_PCM_16BIT
     private var isRecording2 = false
     private val thresholdDb = 50  // 임계값 설정 (데시벨)
@@ -67,7 +79,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private var timer: Timer? = null
     private val handler = Handler(Looper.getMainLooper())
-    private var currentRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,13 +90,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-
         textView = findViewById(R.id.output)
         recorderSpecsTextView = findViewById(R.id.textViewAudioRecorderSpecs)
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
         directionTextView = findViewById(R.id.directionTextView)
-
 
         requestPermissions()
     }
@@ -112,8 +121,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // 위치 요청 설정
         val locationRequest = LocationRequest.create().apply {
-            interval = 500 // 5초 간격으로 위치 업데이트
-            fastestInterval = 100 // 2초 간격으로 위치 업데이트
+            interval = 5000 // 5초 간격으로 위치 업데이트
+            fastestInterval = 2000 // 2초 간격으로 위치 업데이트
             priority = LocationRequest.PRIORITY_HIGH_ACCURACY
         }
 
@@ -130,9 +139,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
     }
 
-
-
-
     private fun requestPermissions() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO)
@@ -143,7 +149,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_RECORD_AUDIO && grantResults.isNotEmpty()&& grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        if (requestCode == REQUEST_RECORD_AUDIO && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             startAudioClassificationService()
         } else {
             textView.text = "Audio recording permission denied"
@@ -164,15 +170,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private var currentDirection: String = ""
+    private var selectedSounds: Set<String> = emptySet()
+    private val detectionTargets = listOf("dog", "bark", "honk", "horn", "siren", "vehicle", "bird")
 
     private fun startAudioClassification() {
-        val minBufferSize =
-            AudioRecord.getMinBufferSize(sampleRate2, channelConfig2, audioFormat2)
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.RECORD_AUDIO
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        selectedSounds = loadSelectedSoundsFromSharedPreferences()
+        val minBufferSize = AudioRecord.getMinBufferSize(sampleRate2, channelConfig2, audioFormat2)
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             return
         }
 
@@ -191,22 +195,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val buffer = ShortArray(minBufferSize)
                 audioRecord2?.read(buffer, 0, buffer.size)
 
-                val leftChannelSum = mutableListOf<Double>()
-                val rightChannelSum = mutableListOf<Double>()
+                val rmsSum = buffer.map { it.toDouble().pow(2) }.sum()
+                val rms = sqrt(rmsSum / buffer.size)
+                val db = rmsToDb(rms)
 
-                for (i in buffer.indices step 2) {
-                    leftChannelSum.add(buffer[i].toDouble().pow(2))
-                    rightChannelSum.add(buffer[i + 1].toDouble().pow(2))
-                }
-
-                val leftRms = sqrt(leftChannelSum.average())
-                val rightRms = sqrt(rightChannelSum.average())
-
-                val leftDb = rmsToDb(leftRms)
-                val rightDb = rmsToDb(rightRms)
-
-                if (leftDb > thresholdDb || rightDb > thresholdDb) {
-                    currentDirection = if (leftDb > rightDb) "Left" else "Right"
+                if (db > thresholdDb) {
+                    currentDirection = if (buffer.take(buffer.size / 2).sum() > buffer.drop(buffer.size / 2).sum()) "Left" else "Right"
                     runOnUiThread {
                         directionTextView.text = currentDirection
                     }
@@ -235,12 +229,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val outputStr = filteredModelOutput.sortedBy { -it.score }
                     .joinToString(separator = "\n") { "${it.label} -> ${it.score} " }
 
+                val detectedSound = detectionTargets.find { target ->
+                    filteredModelOutput.any { it.label.equals(target, ignoreCase = true) }
+                }
+
+
                 if (outputStr.isNotEmpty()) {
                     runOnUiThread {
                         textView.text = outputStr
-                        if (isTargetSoundDetected(outputStr)) {
-                            addDirectionalMarker(currentDirection,outputStr)
+                        if (isTargetSoundDetected(outputStr, selectedSounds)) {
+                            addDirectionalMarker(currentDirection, outputStr)
                             vibrate()
+                            if (detectedSound != null) {
+                                sendNotification(detectedSound)
+                            }
                         }
                     }
                 }
@@ -248,19 +250,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-
-    private fun isTargetSoundDetected(outputStr: String): Boolean {
-        return outputStr.contains("dog", ignoreCase = true) ||
-                outputStr.contains("bark", ignoreCase = true) ||
-                outputStr.contains("honk", ignoreCase = true) ||
-                outputStr.contains("fire alarm", ignoreCase = true) ||
-                outputStr.contains("siren", ignoreCase = true) ||
-                outputStr.contains("vehicle horn", ignoreCase = true)
+    private fun isTargetSoundDetected(outputStr: String, selectedSounds: Set<String>): Boolean {
+        for (sound in selectedSounds) {
+            if (outputStr.contains(sound, ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun vibrate() {
         if (vibrator.hasVibrator()) {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 vibrator.vibrate(500)
@@ -268,7 +269,38 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    private var notificationId = 2 // Start with a unique ID
+    private fun sendNotification(detectedSound: String) {
+        val channelId = "AudioClassificationServiceChannel"
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        // Android O 이상에서는 NotificationChannel을 생성해야 합니다.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelName = "Audio Classification Service"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel(channelId, channelName, importance)
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        // 알림 생성
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Sound Detected")
+            .setContentText("Detected: $detectedSound")
+            .setSmallIcon(R.drawable.ic_launcher_background) // 알림 아이콘 설정
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+
+        // 알림 표시
+        notificationManager.notify(notificationId++, notification)
+    }
+
+    private val markerList = mutableListOf<Marker>()
+
+    private fun getResizedBitmap(@DrawableRes drawableRes: Int, width: Int, height: Int): Bitmap? {
+        val imageBitmap = BitmapFactory.decodeResource(resources, drawableRes)
+        return Bitmap.createScaledBitmap(imageBitmap, width, height, false)
+    }
 
     private fun addDirectionalMarker(direction: String, outputStr: String) {
         currentLocation?.let { location ->
@@ -292,22 +324,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 .position(newLatLng)
                 .title(direction)
 
-            // 소리 종류에 따라 마커 이미지 설정
             val markerImage = when {
-                outputStr.contains("dog", ignoreCase = true) || outputStr.contains("bark", ignoreCase = true) -> R.drawable.bark2
-                outputStr.contains("honk", ignoreCase = true) -> R.drawable.honk
-                outputStr.contains("fire alarm", ignoreCase = true) || outputStr.contains("siren", ignoreCase = true) || outputStr.contains("vehicle horn", ignoreCase = true) -> R.drawable.vehiclehorn2
+                outputStr.contains("dog", ignoreCase = true) || outputStr.contains("bark", ignoreCase = true) -> R.drawable.dog
+                outputStr.contains("honk", ignoreCase = true) || outputStr.contains("horn", ignoreCase = true) -> R.drawable.honk
+                outputStr.contains("siren", ignoreCase = true) -> R.drawable.siren
+                outputStr.contains("vehicle", ignoreCase = true) -> R.drawable.vehicle
+                outputStr.contains("bird", ignoreCase = true) -> R.drawable.bird
                 else -> R.drawable.accessibility // 기본 마커 이미지
             }
 
-            markerOptions.icon(BitmapDescriptorFactory.fromResource(markerImage))
+            val resizedMarkerImage = getResizedBitmap(markerImage, 200, 200)
+            resizedMarkerImage?.let {
+                markerOptions.icon(BitmapDescriptorFactory.fromBitmap(it))
+            }
 
-            mMap.addMarker(markerOptions)
+            val marker = mMap.addMarker(markerOptions)
+            marker?.let { safeMarker ->
+                markerList.add(safeMarker)
+
+                handler.postDelayed({
+                    safeMarker.remove()
+                    markerList.remove(safeMarker)
+                }, 5000)
+            }
         }
     }
-
-
-
 
     private fun rmsToDb(rms: Double): Double {
         return 20 * log10(rms)
@@ -320,5 +361,65 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         audioRecord2?.release()
         fusedLocationClient.removeLocationUpdates(locationCallback)
     }
-}
 
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        val inflater: MenuInflater = menuInflater
+        inflater.inflate(R.menu.menu_main, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_settings -> {
+                openSettings()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun openSettings() {
+        val intent = Intent(this, SettingsActivity::class.java)
+        startActivity(intent)
+    }
+
+    private fun loadSelectedSoundsFromSharedPreferences(): Set<String> {
+        val sharedPrefs = getSharedPreferences("SoundPreferences", Context.MODE_PRIVATE)
+        Log.d("MainActivity", "SharedPrefs content: ${sharedPrefs.all}")
+
+        val selectedSoundsSet = mutableSetOf<String>()
+        if (sharedPrefs.getBoolean("dog", false)) selectedSoundsSet.add("dog")
+        if (sharedPrefs.getBoolean("honk", false)) selectedSoundsSet.add("honk")
+        if (sharedPrefs.getBoolean("siren", false)) selectedSoundsSet.add("siren")
+        if (sharedPrefs.getBoolean("vehicle", false)) selectedSoundsSet.add("vehicle")
+        if (sharedPrefs.getBoolean("bird", false)) selectedSoundsSet.add("bird")
+
+        Log.d("MainActivity", "Loaded preferences: $selectedSoundsSet")
+
+        return selectedSoundsSet
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        selectedSounds = loadSelectedSoundsFromSharedPreferences()
+
+        if (selectedSounds.isNotEmpty()) {
+            textView.text = "Selected Sounds: ${selectedSounds.joinToString(", ")}"
+            Log.d("MainActivity", "Selected sounds: ${selectedSounds.joinToString(", ")}")
+        } else {
+            textView.text = "No sounds selected"
+        }
+
+        resetAudioClassification()
+    }
+
+    private fun resetAudioClassification() {
+        timer?.cancel()
+        isRecording2 = false
+        audioRecord2?.stop()
+        audioRecord2?.release()
+
+        startAudioClassification()
+    }
+}

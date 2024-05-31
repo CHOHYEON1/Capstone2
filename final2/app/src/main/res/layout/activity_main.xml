@@ -12,9 +12,12 @@
         android:layout_width="350dp"
         android:layout_height="600dp"
         android:layout_centerInParent="true"
+        android:layout_marginTop="10dp"
         android:background="@drawable/frame_border"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        app:layout_constraintHorizontal_bias="0.491"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
         <fragment
             android:id="@+id/map"
@@ -22,14 +25,8 @@
             android:layout_width="340dp"
             android:layout_height="590dp"
             android:layout_marginStart="5dp"
-            android:layout_marginTop="5dp"
-            app:layout_constraintBottom_toTopOf="@id/textView"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            android:layout_marginTop="5dp" />
     </FrameLayout>
-
-
 
     <TextView
         android:id="@+id/output"
@@ -42,90 +39,19 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.742" />
-
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Recording"
-        android:textAppearance="@style/TextAppearance.AppCompat.Large"
-        app:layout_constraintBottom_toTopOf="@+id/output"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.498"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.076" />
+        app:layout_constraintVertical_bias="0.941" />
 
     <TextView
         android:id="@+id/textViewAudioRecorderSpecs"
         android:layout_width="299dp"
         android:layout_height="94dp"
         android:gravity="center"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/output" />
 
-    <ImageView
-        android:id="@+id/imageViewDog"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/textViewAudioRecorderSpecs"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="16dp"
-        android:visibility="gone"
-        android:src="@drawable/dog" />
-
-    <ImageView
-        android:id="@+id/imageViewBark"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/textViewAudioRecorderSpecs"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="16dp"
-        android:visibility="gone"
-        android:src="@drawable/bark" />
-
-    <ImageView
-        android:id="@+id/imageViewHonk"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/textViewAudioRecorderSpecs"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="16dp"
-        android:visibility="gone"
-        android:src="@drawable/honk" />
-
-    <ImageView
-        android:id="@+id/imageViewFireAlarm"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/textViewAudioRecorderSpecs"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="16dp"
-        android:visibility="gone"
-        android:src="@drawable/firealarm" />
-
-    <ImageView
-        android:id="@+id/imageViewSiren"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/textViewAudioRecorderSpecs"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="16dp"
-        android:visibility="gone"
-        android:src="@drawable/siren" />
-
-    <ImageView
-        android:id="@+id/imageViewVehicleHorn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/textViewAudioRecorderSpecs"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="16dp"
-        android:visibility="gone"
-        android:src="@drawable/vehiclehorn" />
 
     <TextView
         android:id="@+id/directionTextView"
@@ -133,6 +59,7 @@
         android:layout_height="wrap_content"
         android:text="TextView"
         android:textSize="20sp"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.498"

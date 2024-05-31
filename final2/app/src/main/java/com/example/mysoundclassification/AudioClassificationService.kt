@@ -21,9 +21,8 @@ class AudioClassificationService : Service() {
     private lateinit var classifier: AudioClassifier
     private val probabilityThreshold: Float = 0.3f
     private val modelPath = "lite-model_yamnet_classification_tflite_1.tflite"
-    private val detectionTargets = listOf("dog", "Bark", "Honk", "Fire alarm", "Siren", "Vehicle horn")
+    private val detectionTargets = listOf("dog", "bark", "honk", "horn", "siren", "vehicle", "bird")
     private val channelId = "AudioClassificationServiceChannel"
-    private var notificationId = 2 // Start with a unique ID
     private var lastDetectedSound: String? = null // Variable to store the last detected sound
 
     override fun onCreate() {
@@ -54,8 +53,6 @@ class AudioClassificationService : Service() {
 
             if (detectedSound != null && detectedSound != lastDetectedSound) {
                 lastDetectedSound = detectedSound
-                vibrate()
-                sendNotification(detectedSound)
             }
         }
     }
@@ -77,29 +74,8 @@ class AudioClassificationService : Service() {
         startForeground(1, notification)
     }
 
-    private fun vibrate() {
-        if (vibrator.hasVibrator()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                vibrator.vibrate(500)
-            }
-        }
-    }
 
-    private fun sendNotification(detectedSound: String) {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Ensure this icon exists
-            .setContentTitle("Sound Detected")
-            .setContentText("Detected sound: $detectedSound")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .build()
-
-        notificationManager.notify(notificationId++, notification)
-    }
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
