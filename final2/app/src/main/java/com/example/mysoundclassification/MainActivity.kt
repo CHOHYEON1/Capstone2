@@ -238,7 +238,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                         textView.text = outputStr
                         if (isTargetSoundDetected(outputStr, selectedSounds)) {
                             addDirectionalMarker(currentDirection, outputStr)
-                            vibrate()
                             if (detectedSound != null) {
                                 sendNotification(detectedSound)
                             }
@@ -253,11 +252,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    private var lastSoundDetectionTimeMap = mutableMapOf<String, Long>()
+
     private fun isTargetSoundDetected(outputStr: String, selectedSounds: Set<String>): Boolean {
+        val currentTime = System.currentTimeMillis()
         for (sound in selectedSounds) {
             if (outputStr.contains(sound, ignoreCase = true)) {
-                Log.d("MainActivity", "Detected target sound: $sound")
-                return true
+                // 해당 소리가 최근 5초 내에 감지되었는지 확인
+                if (currentTime - (lastSoundDetectionTimeMap[sound] ?: 0) > 5000) {
+                    // 최근 5초 내에 감지되지 않았으면 해당 소리 감지로 처리하고, 시간 기록
+                    lastSoundDetectionTimeMap[sound] = currentTime
+                    return true
+                }
             }
         }
         return false
@@ -265,12 +271,29 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
 
 
-    private fun vibrate() {
+
+    private fun vibrate(target: String) {
         if (vibrator.hasVibrator()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+                val vibrationEffect = when (target) {
+                    "siren" -> VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500, 200, 500), -1) // 진동 3번
+                    "dog" -> VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE) // 진동 1번
+                    "honk" -> VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1) // 진동 2번
+                    else -> null
+                }
+                vibrationEffect?.let { vibrator.vibrate(it) }
             } else {
-                vibrator.vibrate(500)
+                when (target) {
+                    "siren" -> {
+                        vibrator.vibrate(longArrayOf(0, 500, 200, 500, 200, 500), -1) // 진동 3번
+                    }
+                    "dog" -> {
+                        vibrator.vibrate(500) // 진동 1번
+                    }
+                    "honk" -> {
+                        vibrator.vibrate(longArrayOf(0, 500, 200, 500), -1) // 진동 2번
+                    }
+                }
             }
         }
     }
@@ -287,16 +310,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             notificationManager.createNotificationChannel(channel)
         }
 
+        // 기본 진동 비활성화
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Sound Detected")
             .setContentText("Detected: $detectedSound")
             .setSmallIcon(R.drawable.ic_launcher_background)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVibrate(longArrayOf(0L)) // 빈 진동 패턴 설정
             .setAutoCancel(true)
             .build()
 
         notificationManager.notify(notificationId++, notification)
+
+        // 맞춤 진동 패턴 적용
+        vibrate(detectedSound)
     }
+
+
 
     private val markerList = mutableListOf<Marker>()
 
