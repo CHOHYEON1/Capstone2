@@ -1,39 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
     <CheckBox
         android:id="@+id/checkBoxDog"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Dog" />
+        android:text="Dog"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <CheckBox
         android:id="@+id/checkBoxHonk"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Car horn" />
+        android:text="Car horn"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/checkBoxDog" />
 
     <CheckBox
         android:id="@+id/checkBoxSiren"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Siren" />
+        android:text="Siren"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/checkBoxHonk" />
 
 
     <CheckBox
         android:id="@+id/checkBoxBird"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Bird" />
+        android:text="Bird"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/checkBoxSiren" />
 
-    <!-- Add more checkboxes for other sound types as needed -->
+    <!-- 다른 사운드 유형에 대한 추가 체크박스를 필요에 따라 추가합니다 -->
 
     <Button
         android:id="@+id/buttonSave"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Save" />
-</LinearLayout>
+        android:text="Save"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.95"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.976" />
+</androidx.constraintlayout.widget.ConstraintLayout>

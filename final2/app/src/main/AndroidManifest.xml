@@ -22,7 +22,8 @@
 
         <!-- MainActivity -->
         <activity android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:label="쾌청">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -30,7 +31,8 @@
         </activity>
 
         <!-- SettingsActivity -->
-        <activity android:name=".SettingsActivity"></activity>
+        <activity android:name=".SettingsActivity"
+            android:label="가청 소리 선택"></activity>
 
         <service android:name=".AudioClassificationService"
             android:foregroundServiceType="microphone"/>
