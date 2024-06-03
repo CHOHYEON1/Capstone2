@@ -50,6 +50,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private val TAG = "MainActivity"
     private val REQUEST_RECORD_AUDIO = 1337
@@ -227,10 +228,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
 
                 val outputStr = filteredModelOutput.sortedBy { -it.score }
-                    .joinToString(separator = "\n") { "${it.label} -> ${it.score} " }
+                    .joinToString(separator = "\n") { "${it.label}" }
 
                 val detectedSound = detectionTargets.find { target ->
-                    filteredModelOutput.any { it.label.equals(target, ignoreCase = true) }
+                    filteredModelOutput.any { it.label.contains(target, ignoreCase = true) }
                 }
 
                 if (outputStr.isNotEmpty()) {
